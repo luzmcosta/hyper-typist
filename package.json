@@ -1,0 +1,24 @@
+{
+  "name": "hyper-typist",
+  "version": "0.1.0",
+  "description": "Type smarter in the Hyper terminal app.",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luzmcosta/hyper-typist.git"
+  },
+  "keywords": [
+    "hyper",
+    "javascript",
+    "ecmascript"
+  ],
+  "author": "Luz M. Costa <luzmcosta@gmail.com> (luzmcosta.com)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/luzmcosta/hyper-typist/issues"
+  },
+  "homepage": "https://github.com/luzmcosta/hyper-typist#readme"
+}
