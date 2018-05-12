@@ -2,8 +2,10 @@
   "name": "hyper-typist",
   "version": "0.1.1",
   "description": "Type smarter in the Hyper terminal app.",
-  "main": "index.js",
+  "main": "build/index.js",
   "scripts": {
+    "build": "babel index.js build/index.js",
+    "lint": "eslint index.js",
     "test": "mocha"
   },
   "repository": {
@@ -20,5 +22,11 @@
   "bugs": {
     "url": "https://github.com/luzmcosta/hyper-typist/issues"
   },
-  "homepage": "https://github.com/luzmcosta/hyper-typist#readme"
+  "homepage": "https://github.com/luzmcosta/hyper-typist#readme",
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-preset-env": "^1.7.0",
+    "eslint": "^4.19.1",
+    "eslint-config-google": "^0.9.1"
+  }
 }
