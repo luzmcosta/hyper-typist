@@ -15,6 +15,7 @@ let currTerminal;
 
 let currPid = '';
 let currUserInputData = '';
+let currCwd = '/';
 let historyEntries = [];
 
 let suppressMode = false;
@@ -131,17 +132,21 @@ exports.middleware = (store) => (next) => (action) => {
   }
 
   const uids = store.getState().sessions.sessions;
+
   switch (action.type) {
     case 'SESSION_USER_DATA':
       const {data} = action;
       let charCode = data.charCodeAt(0);
+
       if (QUICK_SELECT_CHAR_CODE.includes(charCode)) {
         let idxQuickSel = QUICK_SELECT_CHAR_CODE.indexOf(charCode);
         if (idxQuickSel >= 0 && historyEntries.length > idxQuickSel) {
           activeItem(historyEntries[idxQuickSel]);
         }
         reset();
-        return; // prevent input
+
+        // Prevent input.
+        return;
       } else if (data.charCodeAt(0) === 13) {
         reset();
       } else if (data.charCodeAt(0) === 127) {
@@ -167,53 +172,6 @@ exports.middleware = (store) => (next) => (action) => {
 };
 
 /**
- * Update view.
- *
- * @param {Object} Term
- * @param {Object} param1
- * @return {React}
- */
-exports.decorateTerm = (Term, {React, notify}) => {
-  return class extends React.Component {
-    /**
-     * Bind to events.
-     *
-     * @param {Object} props
-     * @param {Object} context
-     */
-    constructor(props, context) {
-      super(props, context);
-      this.onTerminal = this.onTerminal.bind(this, this);
-    }
-
-    /**
-     * Response to a terminal event.
-     *
-     * @param {Object} self
-     * @param {Number} term
-     */
-    onTerminal(self, term) {
-      if (self.props.onTerminal) self.props.onTerminal(term);
-      allTerminals[self.props.uid] = term;
-      window.HYPER_HISTORY_TERM_ALL = allTerminals;
-      window.HYPER_HISTORY_TERM = currTerminal = term;
-    }
-
-    /**
-     * Update the view.
-     *
-     * @return {React}
-     */
-    render() {
-      let props = Object.assign({}, this.props, {
-        onTerminal: this.onTerminal,
-      });
-      return React.createElement(Term, props);
-    }
-  };
-};
-
-/**
  * Reset view.
  */
 function reset() {
@@ -226,32 +184,34 @@ function reset() {
  * Cycle through the bash history.
  */
 function grepHistory() {
-  fs.readFile(path.join(process.env['HOME'], '.bash_history'), (err, data) => {
-  if (!err) {
-    let history = data.toString();
-    let set = {};
+  const file = path.join(process.env['HOME'], '.bash_history');
 
-    historyEntries = !history ?
-      [] :
-      history
+  fs.readFile(file, (err, data) => {
+    if (!err) {
+      let history = data.toString();
+      let set = {};
+
+      historyEntries = !history ?
+        [] :
+        history
         .split('\n')
         .map((e) => {
-            if (e.length <= 2) {
+          if (e.length <= 2) {
             return undefined;
-            } else if (set[e] === true) {
+          } else if (set[e] === true) {
             return undefined;
-            } else {
+          } else {
             set[e] = true;
             return e.toLowerCase();
-            }
+          }
         })
         .filter((e) => !!e && fuzzy_match(e, currUserInputData))
         .map((e, i) => {
-            return {
+          return {
             index: i + 1,
             command: e,
-            };
-      });
+          };
+        });
 
       updateReact();
     } else {
@@ -268,17 +228,19 @@ function updateReact() {
 }
 
 /**
- * Set the current shell cwd.
+ * Get the current pane's pid and store it.
  *
  * @param {Number} pid
  */
 function setCwd(pid) {
-  exec(
-    `lsof -p ${pid} | grep cwd | tr -s ' ' | cut -d ' ' -f9-`,
-    (err, cwd) => {
-      currCwd = cwd.trim();
-    }
-  );
+  const cmd = `lsof -p ${pid} | grep cwd | tr -s ' ' | cut -d ' ' -f9-`;
+  const callback = (err, cwd) => {
+    // Set current pane.
+    currCwd = cwd.trim();
+  };
+
+  // Get current pane's pid.
+  exec(cmd, callback);
 }
 
 /**
