@@ -313,7 +313,7 @@ function fuzzy_match(text, search) {
   // is case insensitive
   const normalized = search.replace(/\ /g, '').toLowerCase();
   const tokens = [];
-  const search_position = 0;
+  let search_position = 0;
 
   // Go through each character in the text
   for (let n = 0; n < text.length; n++) {
