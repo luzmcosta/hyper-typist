@@ -1,4 +1,4 @@
-const { exec } = require('child_process');
+let { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -266,7 +266,7 @@ function fuzzy_match(text, search) {
   // If are characters remaining in the search text,
   // return an empty string to indicate no match
   if (search_position != search.length) {
-    return "";
+    return '';
   }
   return tokens.join("");
 }
