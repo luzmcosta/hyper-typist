@@ -4,7 +4,7 @@
   "description": "Type smarter in the Hyper terminal app.",
   "main": "build/index.js",
   "scripts": {
-    "build": "babel index.js build/index.js",
+    "build": "babel index.js -o build/index.js",
     "lint": "eslint index.js",
     "test": "mocha"
   },
@@ -26,6 +26,7 @@
   "devDependencies": {
     "babel-cli": "^6.26.0",
     "babel-preset-env": "^1.7.0",
+    "babel-preset-react": "^6.24.1",
     "eslint": "^4.19.1",
     "eslint-config-google": "^0.9.1"
   }

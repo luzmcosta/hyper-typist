@@ -15,7 +15,7 @@ let currTerminal;
 
 let currPid = '';
 let currUserInputData = '';
-let currCwd = '/';
+let currCwd = '~';
 let historyEntries = [];
 
 let suppressMode = false;
@@ -26,24 +26,23 @@ exports.decorateConfig = (config) => {
       ${config.css || ''}
       .hyper-typist {
         position: fixed;
-        top: 50px;
-        bottom: 50px;
-        right: 0px;
-        width: 30%;
-        min-width: 200px;
-        max-width: 400px;
-        pointer-events: none;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 45ch;
+        min-width: 1ch;
+        max-width: 60ch;
         overflow: scroll;
+        pointer-events: none;
       }
-      .hyper-typist-list {
+      .hyper-typist_list {
         pointer-events: initial;
       }
-      .hyper-typist-list__item {
-        padding: 4px;
+      .hyper-typist_list-item {
         cursor: pointer;
-        position: relative;
+        line-height: 2.5ch;
       }
-      .hyper-typist-list__item:after {
+      .hyper-typist_list-item:after {
         content: "";
         display: block;
         top: 0px;
@@ -55,19 +54,49 @@ exports.decorateConfig = (config) => {
         opacity: 0;
         transition: opacity .1s ease;
       }
-      .hyper-typist-list__item:hover {
+      .hyper-typist_list-item:hover {
         padding: 3px;
         border: 1px solid currentColor;
       }
-      .hyper-typist-list__item:hover.hyper-typist-list__item:after {
+      .hyper-typist_list-item:hover.hyper-typist_list-item:after {
         opacity: 0.4;
       }
-      .hyper-typist-list__item:active.hyper-typist-list__item:after {
+      .hyper-typist_list-item:active.hyper-typist_list-item:after {
         opacity: 1;
+      }
+      .hyper-typist_entry-index {
+        margin-right: 1ch;
+        opacity: .5;
       }
     `,
   });
 };
+
+// @TODO Move presentation to its own file.
+const presentation = {};
+
+presentation.entry = (entry) => {
+  // Define React, as it's used implicitly below.
+  // eslint-disable-next-line no-unused-vars
+  const React = presentation.view;
+
+  return <div class="hyper-typist_list-item">
+    <span class="hyper-typist_entry-index">{entry.index}</span>
+    <span class="hyper-typist_entry-command">{entry.command}</span>
+  </div>;
+};
+
+presentation.list = (historyEntries) => presentation.view.createElement(
+  'div',
+  {className: 'hyper-typist_list'},
+  ...historyEntries.map(presentation.entry)
+);
+
+presentation.main = (historyEntries) => presentation.view.createElement(
+  'div',
+  {className: 'hyper-typist'},
+  presentation.list(historyEntries)
+);
 
 exports.decorateHyper = (Hyper, {React}) => {
   return class extends React.Component {
@@ -96,30 +125,17 @@ exports.decorateHyper = (Hyper, {React}) => {
      * @return {React}
      */
     render() {
+      // Set presentation's renderer.
+      presentation.view = React;
+
+      const {customChildren} = this.props;
+      const existingChildren = customChildren ? customChildren instanceof Array ? customChildren : [customChildren] : [];
+
       return React.createElement(
         Hyper,
         Object.assign({}, this.props, {
-          customChildren: React.createElement(
-            'div',
-            {className: 'hyper-typist'},
-            React.createElement(
-              'div',
-              {className: 'hyper-typist-list'},
-              ...historyEntries.map((entry) => {
-                return React.createElement(
-                  'div',
-                  {
-                    key: entry.index,
-                    className: 'hyper-typist-list__item',
-                    onClick: (_) => {
-                      activeItem(entry);
-                    },
-                  },
-                  `[${entry.index}]: ${entry.command}`
-                );
-              })
-            )
-          ),
+          // Render to .hyper_main via customInnerChildren.
+          customInnerChildren: existingChildren.concat(presentation.main(historyEntries)),
         })
       );
     }
@@ -171,6 +187,46 @@ exports.middleware = (store) => (next) => (action) => {
   next(action);
 };
 
+exports.decorateTerm = (Term, {React, notify}) => {
+  return class extends React.Component {
+    /**
+     * Bind events.
+     *
+     * @param {Object} props
+     * @param {Object} context
+     */
+    constructor(props, context) {
+      super(props, context);
+      this.onTerminal = this.onTerminal.bind(this, this);
+    }
+
+    /**
+     * Update Terminal.
+     *
+     * @param {Object} self
+     * @param {Object} term
+     */
+    onTerminal(self, term) {
+      if (self.props.onTerminal) self.props.onTerminal(term);
+      allTerminals[self.props.uid] = term;
+      window.HYPER_HISTORY_TERM_ALL = allTerminals;
+      window.HYPER_HISTORY_TERM = currTerminal = term;
+    }
+
+    /**
+     * Update Terminal view.
+     *
+     * @return {Object} React element
+     */
+    render() {
+      let props = Object.assign({}, this.props, {
+        onTerminal: this.onTerminal,
+      });
+      return React.createElement(Term, props);
+    }
+  };
+};
+
 /**
  * Reset view.
  */
@@ -178,6 +234,36 @@ function reset() {
   currUserInputData = '';
   historyEntries = [];
   updateReact();
+}
+
+/**
+ * Get relevent entries from history.
+ *
+ * @uses fuzzy_match
+ * @return {Array} History entries matching user input.
+ */
+function getEntries({currUserInputData, history}) {
+  let set = {};
+
+  return history
+    .split('\n')
+    .map((e) => {
+      if (e.length <= 2) {
+        return undefined;
+      } else if (set[e] === true) {
+        return undefined;
+      } else {
+        set[e] = true;
+        return e.toLowerCase();
+      }
+    })
+    .filter((e) => !!e && fuzzy_match(e, currUserInputData))
+    .map((e, i) => {
+      return {
+        index: i + 1,
+        command: e,
+      };
+    });
 }
 
 /**
@@ -189,29 +275,11 @@ function grepHistory() {
   fs.readFile(file, (err, data) => {
     if (!err) {
       let history = data.toString();
-      let set = {};
 
-      historyEntries = !history ?
-        [] :
-        history
-        .split('\n')
-        .map((e) => {
-          if (e.length <= 2) {
-            return undefined;
-          } else if (set[e] === true) {
-            return undefined;
-          } else {
-            set[e] = true;
-            return e.toLowerCase();
-          }
-        })
-        .filter((e) => !!e && fuzzy_match(e, currUserInputData))
-        .map((e, i) => {
-          return {
-            index: i + 1,
-            command: e,
-          };
-        });
+      historyEntries = !history ? [] : getEntries({
+        currUserInputData,
+        history,
+      });
 
       updateReact();
     } else {
@@ -221,14 +289,14 @@ function grepHistory() {
 }
 
 /**
- * Force an update on the view.
+ * Update the view.
  */
 function updateReact() {
   reactHistoryNav.forceUpdate();
 }
 
 /**
- * Get the current pane's pid and store it.
+ * Get the current working directory.
  *
  * @param {Number} pid
  */
@@ -256,9 +324,13 @@ function activeItem(entry) {
   currTerminal.io.sendString('\n');
   currUserInputData = '';
   historyEntries = [];
+
   updateReact();
+
   suppressMode = false;
+
   currTerminal.focus();
+
   console.log('to active command', command);
 }
 
